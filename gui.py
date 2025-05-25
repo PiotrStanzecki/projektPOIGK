@@ -71,7 +71,6 @@ with dpg.window(label="Panel", pos=[910, 20], width=300):
     dpg.add_text("Control Panel")
     dpg.add_button(label="Load Image", callback=lambda: print("Load Image Clicked"))
     dpg.add_button(label="Start program", callback=lambda: print("Program Started"))
-
     dpg.add_slider_float(label="Std Dev", default_value=1.0, min_value=0.1, max_value=5.0)
 
     
