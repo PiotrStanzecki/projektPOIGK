@@ -261,12 +261,9 @@ def process_node(node_id, current_node_outputs):
             
             if dpg_data is not None:
                 new_actual_texture_tag = update_dpg_texture(base_texture_name, width, height, dpg_data)
-                dpg.set_item_width(image_item_tag, width)
-                dpg.set_item_height(image_item_tag, height)
+                # Removed lines that resize image_item and image_container to actual image size
+                # This ensures the display remains fixed at 200x200
                 dpg.set_item_source(image_item_tag, new_actual_texture_tag)
-                
-                dpg.set_item_width(image_container_tag, width)
-                dpg.set_item_height(image_container_tag, height)
                 node_registry[node_id]['texture_tag'] = new_actual_texture_tag
             else:
                 print(f"WARNING: Failed to convert processed image to DPG texture data for node {node_id}.")
@@ -416,8 +413,7 @@ def open_file_dialog_callback(sender, app_data):
             
             if dpg.does_item_exist(image_item_tag):
                 new_actual_texture_tag = update_dpg_texture(base_texture_name, width, height, dpg_data)
-                dpg.set_item_width(image_item_tag, width)
-                dpg.set_item_height(image_item_tag, height)
+                # Removed lines that resize image_item
                 dpg.set_item_source(image_item_tag, new_actual_texture_tag) 
                 node_registry[node_id]['texture_tag'] = new_actual_texture_tag
             else:
@@ -500,14 +496,11 @@ def node_parameter_changed(sender, app_data, user_data):
 # --- Node Creation Functions ---
 
 def create_input_node(node_editor_id):
-    """
-    Creates an image input node. This node allows users to load an image
-    from a file and outputs the image data.
-    """
+    """Creates an image input node."""
     node_id = dpg.generate_uuid() 
     node_registry[node_id] = {'type': 'input_node'}
 
-    with dpg.node(parent=node_editor_id, label="Obraz wejściowy", tag=node_id):
+    with dpg.node(parent=node_editor_id, label="Input Image", tag=node_id):
         with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output) as output_pin_tag: 
             node_registry[node_id]['output_pin_tag'] = output_pin_tag 
 
@@ -516,122 +509,108 @@ def create_input_node(node_editor_id):
                 _current_dialog_node_id = node_id_to_pass
                 dpg.show_item("file_dialog_id")
             
-            dpg.add_button(label="Wczytaj obraz", callback=lambda s, a: _load_button_callback(s, a, node_id))
+            dpg.add_button(label="Load Image", callback=lambda s, a: _load_button_callback(s, a, node_id))
             
             base_texture_name = f"input_texture_{node_id}"
             placeholder_data = np.zeros(4, dtype=np.float32) 
             initial_texture_id = update_dpg_texture(base_texture_name, 1, 1, placeholder_data)
 
+            # Image item and its container are fixed size
             image_item_tag = dpg.add_image(initial_texture_id, width=200, height=200) 
             node_registry[node_id]['image_item_tag'] = image_item_tag
             node_registry[node_id]['texture_tag'] = initial_texture_id 
     return node_id
 
 def create_gaussian_blur_node(node_editor_id):
-    """
-    Creates a Gaussian blur node. This node applies a Gaussian blur filter
-    to the input image based on the 'sigma' and 'size' parameters.
-    """
+    """Creates a Gaussian blur node."""
     node_id = dpg.generate_uuid()
     node_registry[node_id] = {'type': 'gaussian_blur_node'}
 
-    with dpg.node(parent=node_editor_id, label="Rozmycie Gaussa", tag=node_id):
+    with dpg.node(parent=node_editor_id, label="Gaussian Blur", tag=node_id):
         with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input) as input_pin_tag:
             node_registry[node_id]['input_pin_tag'] = input_pin_tag 
-            dpg.add_text("Wejście obrazu")
+            dpg.add_text("Image Input")
         
         with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Static):
             sigma_slider = dpg.add_slider_float(label="Sigma", default_value=3.0, min_value=0.1, max_value=10.0,
                                                  callback=node_parameter_changed, user_data=node_id, width=150)
             node_registry[node_id]['sigma_slider'] = sigma_slider
-            size_slider = dpg.add_slider_int(label="Rozmiar jądra (nieparzysty)", default_value=5, min_value=1, max_value=21,
+            size_slider = dpg.add_slider_int(label="Kernel Size (odd)", default_value=5, min_value=1, max_value=21,
                                                  callback=node_parameter_changed, user_data=node_id, width=150)
             node_registry[node_id]['size_slider'] = size_slider
         
         with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output) as output_pin_tag:
             node_registry[node_id]['output_pin_tag'] = output_pin_tag 
-            dpg.add_text("Wyjście obrazu")
+            dpg.add_text("Image Output")
     return node_id
 
 def create_median_filter_node(node_editor_id):
-    """
-    Creates a median filter node. This node applies a median filter
-    to the input image based on the 'size' parameter.
-    """
+    """Creates a median filter node."""
     node_id = dpg.generate_uuid()
     node_registry[node_id] = {'type': 'median_filter_node'}
 
-    with dpg.node(parent=node_editor_id, label="Filtr Medianowy", tag=node_id):
+    with dpg.node(parent=node_editor_id, label="Median Filter", tag=node_id):
         with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input) as input_pin_tag:
             node_registry[node_id]['input_pin_tag'] = input_pin_tag 
-            dpg.add_text("Wejście obrazu")
+            dpg.add_text("Image Input")
         
         with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Static):
-            size_slider = dpg.add_slider_int(label="Rozmiar (nieparzysty)", default_value=7, min_value=1, max_value=21,
+            size_slider = dpg.add_slider_int(label="Size (odd)", default_value=7, min_value=1, max_value=21,
                                              callback=node_parameter_changed, user_data=node_id, width=150)
             node_registry[node_id]['size_slider'] = size_slider
         
         with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output) as output_pin_tag:
             node_registry[node_id]['output_pin_tag'] = output_pin_tag 
-            dpg.add_text("Wyjście obrazu")
+            dpg.add_text("Image Output")
     return node_id
 
 def create_hist_equalization_node(node_editor_id):
-    """
-    Creates a histogram equalization node. This node enhances the contrast
-    of the input image by distributing the intensity values.
-    """
+    """Creates a histogram equalization node."""
     node_id = dpg.generate_uuid()
     node_registry[node_id] = {'type': 'hist_equalization_node'}
 
-    with dpg.node(parent=node_editor_id, label="Wyrównanie Histogramu", tag=node_id):
+    with dpg.node(parent=node_editor_id, label="Histogram Equalization", tag=node_id):
         with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input) as input_pin_tag:
             node_registry[node_id]['input_pin_tag'] = input_pin_tag 
-            dpg.add_text("Wejście obrazu")
+            dpg.add_text("Image Input")
         
         with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output) as output_pin_tag:
             node_registry[node_id]['output_pin_tag'] = output_pin_tag 
-            dpg.add_text("Wyjście obrazu")
+            dpg.add_text("Image Output")
     return node_id
 
 def create_edge_detection_node(node_editor_id):
-    """
-    Creates an Edge Detection node. This node applies an edge detection filter
-    to the input image based on the 'force' parameter.
-    """
+    """Creates an Edge Detection node."""
     node_id = dpg.generate_uuid()
     node_registry[node_id] = {'type': 'edge_detection_node'}
 
-    with dpg.node(parent=node_editor_id, label="Wykrywanie Krawędzi", tag=node_id):
+    with dpg.node(parent=node_editor_id, label="Edge Detection", tag=node_id):
         with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input) as input_pin_tag:
             node_registry[node_id]['input_pin_tag'] = input_pin_tag 
-            dpg.add_text("Wejście obrazu")
+            dpg.add_text("Image Input")
         
         with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Static):
-            # Slider for the 'force' parameter
-            force_slider = dpg.add_slider_float(label="Siła", default_value=1.0, min_value=0.1, max_value=5.0,
+            force_slider = dpg.add_slider_float(label="Force", default_value=1.0, min_value=0.1, max_value=5.0,
                                                  callback=node_parameter_changed, user_data=node_id, width=150)
             node_registry[node_id]['force_slider'] = force_slider
         
         with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output) as output_pin_tag:
             node_registry[node_id]['output_pin_tag'] = output_pin_tag 
-            dpg.add_text("Wyjście obrazu")
+            dpg.add_text("Image Output")
     return node_id
 
 
 def create_output_node(node_editor_id):
-    """
-    Creates an image output node. This node displays the final processed image
-    and allows saving it to a file.
-    """
+    """Creates an image output node."""
     node_id = dpg.generate_uuid()
     node_registry[node_id] = {'type': 'output_node'}
 
-    with dpg.node(parent=node_editor_id, label="Obraz wyjściowy", tag=node_id):
+    with dpg.node(parent=node_editor_id, label="Output Image", tag=node_id):
         with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input) as input_pin_tag:
             node_registry[node_id]['input_pin_tag'] = input_pin_tag 
-            dpg.add_text("Wejście obrazu")
+            dpg.add_text("Image Input")
             
+            # Image container is fixed size
             image_container_tag = dpg.add_child_window(width=200, height=200, border=False, parent=input_pin_tag)
             node_registry[node_id]['image_container_tag'] = image_container_tag 
 
@@ -639,6 +618,7 @@ def create_output_node(node_editor_id):
             placeholder_data = np.zeros(4, dtype=np.float32) 
             initial_texture_id = update_dpg_texture(base_texture_name, 1, 1, placeholder_data)
 
+            # Image item is fixed size within its container
             image_item_tag = dpg.add_image(initial_texture_id, width=200, height=200, parent=image_container_tag)
             node_registry[node_id]['image_item_tag'] = image_item_tag
             node_registry[node_id]['texture_tag'] = initial_texture_id 
@@ -649,7 +629,7 @@ def create_output_node(node_editor_id):
                 _current_dialog_node_id = node_id_to_pass
                 dpg.show_item("save_file_dialog_id")
 
-            dpg.add_button(label="Zapisz obraz", callback=lambda s, a: _save_button_callback(s, a, node_id))
+            dpg.add_button(label="Save Image", callback=lambda s, a: _save_button_callback(s, a, node_id))
     return node_id
 
 # --- Main GUI Configuration ---
@@ -662,41 +642,40 @@ def run_gui():
 
     with dpg.file_dialog(
         directory_selector=False, show=False, id="file_dialog_id", width=700, height=400,
-        label="Wybierz plik obrazu", default_path=os.getcwd(), callback=open_file_dialog_callback
+        label="Select Image File", default_path=os.getcwd(), callback=open_file_dialog_callback
     ):
-        dpg.add_file_extension(".png", custom_text="[Obraz PNG]")
-        dpg.add_file_extension(".jpg", custom_text="[Obraz JPG]")
-        dpg.add_file_extension(".jpeg", custom_text="[Obraz JPEG]")
-        dpg.add_file_extension(".bmp", custom_text="[Obraz BMP]") 
-        dpg.add_file_extension(".*", custom_text="[Wszystkie pliki]") 
+        dpg.add_file_extension(".png", custom_text="[PNG Image]")
+        dpg.add_file_extension(".jpg", custom_text="[JPG Image]")
+        dpg.add_file_extension(".jpeg", custom_text="[JPEG Image]")
+        dpg.add_file_extension(".bmp", custom_text="[BMP Image]") 
+        dpg.add_file_extension(".*", custom_text="[All Files]") 
 
     with dpg.file_dialog(
         directory_selector=False, show=False, id="save_file_dialog_id", width=700, height=400,
-        label="Zapisz obraz jako", default_path=os.getcwd(), callback=save_output_file_dialog_callback
+        label="Save Image As", default_path=os.getcwd(), callback=save_output_file_dialog_callback
     ):
-        dpg.add_file_extension(".png", custom_text="[Obraz PNG]")
-        dpg.add_file_extension(".jpg", custom_text="[Obraz JPG]")
-        dpg.add_file_extension(".jpeg", custom_text="[Obraz JPEG]")
-        dpg.add_file_extension(".bmp", custom_text="[Obraz BMP]")
-        dpg.add_file_extension(".*", custom_text="[Wszystkie pliki]")
+        dpg.add_file_extension(".png", custom_text="[PNG Image]")
+        dpg.add_file_extension(".jpg", custom_text="[JPG Image]")
+        dpg.add_file_extension(".jpeg", custom_text="[JPEG Image]")
+        dpg.add_file_extension(".bmp", custom_text="[BMP Image]")
+        dpg.add_file_extension(".*", custom_text="[All Files]")
 
-    with dpg.window(label="Edytor obrazów sterowany grafem", tag="main_window", width=1200, height=800):
+    with dpg.window(label="Graph-based Image Editor", tag="main_window", width=1200, height=800):
         with dpg.group(horizontal=True):
             with dpg.child_window(width=200, height=-1):
-                dpg.add_text("Bloczki przetwarzania")
+                dpg.add_text("Processing Blocks")
                 dpg.add_separator()
-                dpg.add_button(label="Obraz wejściowy", callback=lambda: create_input_node("node_editor"), width=-1)
-                dpg.add_button(label="Rozmycie Gaussa", callback=lambda: create_gaussian_blur_node("node_editor"), width=-1)
-                dpg.add_button(label="Filtr Medianowy", callback=lambda: create_median_filter_node("node_editor"), width=-1)
-                dpg.add_button(label="Wyrównanie Histogramu", callback=lambda: create_hist_equalization_node("node_editor"), width=-1)
-                # New button for Edge Detection node
-                dpg.add_button(label="Wykrywanie Krawędzi", callback=lambda: create_edge_detection_node("node_editor"), width=-1)
-                dpg.add_button(label="Obraz wyjściowy", callback=lambda: create_output_node("node_editor"), width=-1)
+                dpg.add_button(label="Input Image", callback=lambda: create_input_node("node_editor"), width=-1)
+                dpg.add_button(label="Gaussian Blur", callback=lambda: create_gaussian_blur_node("node_editor"), width=-1)
+                dpg.add_button(label="Median Filter", callback=lambda: create_median_filter_node("node_editor"), width=-1)
+                dpg.add_button(label="Histogram Equalization", callback=lambda: create_hist_equalization_node("node_editor"), width=-1)
+                dpg.add_button(label="Edge Detection", callback=lambda: create_edge_detection_node("node_editor"), width=-1)
+                dpg.add_button(label="Output Image", callback=lambda: create_output_node("node_editor"), width=-1)
             
             with dpg.node_editor(callback=link_callback, delink_callback=delink_callback, tag="node_editor", width=-1, height=-1):
                 pass
 
-    dpg.create_viewport(title='Edytor obrazów', width=1200, height=800)
+    dpg.create_viewport(title='Image Editor', width=1200, height=800)
     dpg.setup_dearpygui()
     dpg.show_viewport()
     dpg.set_primary_window("main_window", True)
