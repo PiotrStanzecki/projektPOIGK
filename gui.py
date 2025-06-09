@@ -261,8 +261,7 @@ def process_node(node_id, current_node_outputs):
             
             if dpg_data is not None:
                 new_actual_texture_tag = update_dpg_texture(base_texture_name, width, height, dpg_data)
-                # Removed lines that resize image_item and image_container to actual image size
-                # This ensures the display remains fixed at 200x200
+                # This ensures the display remains fixed at 200x200, scaling the image
                 dpg.set_item_source(image_item_tag, new_actual_texture_tag)
                 node_registry[node_id]['texture_tag'] = new_actual_texture_tag
             else:
@@ -413,7 +412,7 @@ def open_file_dialog_callback(sender, app_data):
             
             if dpg.does_item_exist(image_item_tag):
                 new_actual_texture_tag = update_dpg_texture(base_texture_name, width, height, dpg_data)
-                # Removed lines that resize image_item
+                # Image item width/height are kept fixed for display, image scales to fit.
                 dpg.set_item_source(image_item_tag, new_actual_texture_tag) 
                 node_registry[node_id]['texture_tag'] = new_actual_texture_tag
             else:
@@ -492,6 +491,76 @@ def node_parameter_changed(sender, app_data, user_data):
     """
     node_id = user_data 
     re_process_graph(node_id)
+
+# --- Node Deletion Function ---
+def delete_selected_blocks(sender, app_data):
+    """
+    Deletes all currently selected nodes and their associated data from the graph.
+    """
+    selected_nodes = dpg.get_selected_nodes("node_editor")
+    
+    if not selected_nodes:
+        print("INFO: No nodes selected for deletion.")
+        return
+
+    nodes_to_reprocess_from = set() # Store nodes whose input might be affected
+
+    for node_id in selected_nodes:
+        if not dpg.does_item_exist(node_id):
+            print(f"WARNING: Attempted to delete node {node_id} but it no longer exists in DPG.")
+            continue 
+        
+        # Identify downstream nodes that will lose an input due to this deletion
+        # This needs to be done *before* deleting the node from DPG
+        node_output_pin = node_registry.get(node_id, {}).get('output_pin_tag')
+        if node_output_pin and dpg.does_item_exist(node_output_pin):
+            # Iterate over a copy of the links as we might modify the 'links' dictionary indirectly
+            # if delink_callback is implicitly triggered (though for node deletion, direct DPG deletion is safer).
+            # Here, we only care about finding affected downstream nodes.
+            for link_id, (source_pin, target_pin) in list(links.items()): 
+                if source_pin == node_output_pin:
+                    target_node = dpg.get_item_parent(target_pin)
+                    if target_node and target_node not in selected_nodes and dpg.does_item_exist(target_node): 
+                        nodes_to_reprocess_from.add(target_node)
+
+        # Delete any associated texture if this was an input or output node
+        if node_id in node_registry:
+            node_info = node_registry[node_id]
+            if 'texture_tag' in node_info and dpg.does_item_exist(node_info['texture_tag']):
+                dpg.delete_item(node_info['texture_tag'])
+                print(f"DEBUG: Deleted texture {node_info['texture_tag']} for node {node_id}.")
+
+            # Remove from global state dictionaries
+            del node_registry[node_id]
+            if node_id in node_outputs: # Clear node output data
+                del node_outputs[node_id]
+
+        # Delete the node itself from DearPyGui. This also deletes its pins and connected links automatically.
+        dpg.delete_item(node_id)
+        print(f"DEBUG: Deleted node {node_id} from DPG.")
+    
+    # After deleting all nodes, clean up the `links` dictionary
+    # Iterate over a copy of the keys because we're modifying the dictionary
+    keys_to_delete = []
+    for link_id, (source_pin, target_pin) in list(links.items()): # Use list() to iterate over a copy
+        if not (dpg.does_item_exist(source_pin) and dpg.does_item_exist(target_pin)):
+            keys_to_delete.append(link_id)
+
+    for link_id in keys_to_delete:
+        del links[link_id]
+    print(f"DEBUG: Cleaned up {len(keys_to_delete)} stale links from internal registry.")
+
+    # Trigger re-processing for nodes whose inputs might have changed (became None)
+    if nodes_to_reprocess_from:
+        for node_id_to_reprocess in nodes_to_reprocess_from:
+            if dpg.does_item_exist(node_id_to_reprocess):
+                re_process_graph(node_id_to_reprocess)
+            else:
+                print(f"INFO: Downstream node {node_id_to_reprocess} no longer exists, skipping re-processing.")
+    else:
+        # If no specific downstream nodes were identified (e.g., deleted an input node),
+        # or if all nodes were deleted, re-process the entire graph.
+        re_process_graph()
 
 # --- Node Creation Functions ---
 
@@ -671,6 +740,9 @@ def run_gui():
                 dpg.add_button(label="Histogram Equalization", callback=lambda: create_hist_equalization_node("node_editor"), width=-1)
                 dpg.add_button(label="Edge Detection", callback=lambda: create_edge_detection_node("node_editor"), width=-1)
                 dpg.add_button(label="Output Image", callback=lambda: create_output_node("node_editor"), width=-1)
+                dpg.add_separator()
+                # Button to delete selected nodes
+                dpg.add_button(label="Delete Selected Blocks", callback=delete_selected_blocks, width=-1)
             
             with dpg.node_editor(callback=link_callback, delink_callback=delink_callback, tag="node_editor", width=-1, height=-1):
                 pass
