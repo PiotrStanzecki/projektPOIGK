@@ -25,11 +25,17 @@ class ImageFilters:
                 output[i, j] = np.clip(value, 0, 255)
         return output
 
+
     @staticmethod
     def gaussian_blur(image, size=5, sigma=1.0):
         kernel = ImageFilters.gaussian_kernel(size, sigma)
         return ImageFilters.apply_kernel(image, kernel)
-
+    
+    @staticmethod
+    def edge_detection(image, force):
+        kernel_edge = np.array([[0,  force, 0],[force, -4*force, force],[0,  force, 0]], dtype=np.float32)
+        return ImageFilters.apply_kernel(image, kernel_edge)
+    
     @staticmethod
     def median_filter(image, size=3):
         h, w = image.shape
