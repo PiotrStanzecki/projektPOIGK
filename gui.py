@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import dearpygui.dearpygui as dpg 
 import numpy as np
 from PIL import Image
@@ -6,7 +5,7 @@ import os
 
 from image_filters import ImageFilters
 
-# Global dictionaries for application state
+# Application state
 node_registry = {} 
 node_outputs = {} 
 links = {} 
@@ -146,7 +145,7 @@ def get_node_input_image(node_id, current_node_outputs):
                 retrieved_image = current_node_outputs.get(source_node_id)
                 return retrieved_image
             else:
-                print(f"WARNING: Link {link_id} has an invalid source pin.")
+                print(f"Link {link_id} has an invalid source pin.")
                 return None
 
     return None
@@ -190,7 +189,7 @@ def process_node(node_id, current_node_outputs):
 
 
 def re_process_graph(start_node_id=None):
-    # Reprocesses the graph, performing a topological sort to determine processing order.
+    # Reprocesses the graph
     in_degree = {node_id: 0 for node_id in node_registry}
     graph = {node_id: [] for node_id in node_registry} 
 
@@ -203,7 +202,7 @@ def re_process_graph(start_node_id=None):
                 graph[source_node].append(target_node)
                 in_degree[target_node] += 1
             else:
-                print(f"WARNING: Link {link_id} involves non-existent node(s). Skipping.")
+                print(f"Link {link_id} involves non-existent node(s).")
 
     queue = [node_id for node_id in node_registry if in_degree[node_id] == 0]
     
@@ -222,13 +221,13 @@ def re_process_graph(start_node_id=None):
                 queue.append(v)
     
     if len(processed_nodes_in_order) != len(node_registry):
-        print(f"WARNING: Topological sort did not process all nodes. Possible cycle or disconnected nodes.")
+        print(f"Did not process all nodes.")
         remaining_nodes = [node_id for node_id in node_registry if node_id not in processed_nodes_in_order]
         processed_nodes_in_order.extend(remaining_nodes)
 
     for node_id in processed_nodes_in_order:
         if not dpg.does_item_exist(node_id):
-            print(f"WARNING: Node {node_id} no longer exists in DPG. Skipping processing.")
+            print(f"Node {node_id} no longer exists in DPG. Skipping processing.")
             continue
         
         try:
@@ -251,7 +250,7 @@ def delink_callback(sender, app_data):
     link_id = app_data 
 
     if link_id not in links:
-        print(f"WARNING: Attempted to delink {link_id} which is not in our registry. Skipping.")
+        print(f"Attempted to delink {link_id} which is not in our registry. Skipping.")
         dpg.delete_item(link_id) 
         return
         
@@ -272,7 +271,7 @@ def open_file_dialog_callback(sender, app_data):
     _current_dialog_node_id = None 
 
     if not file_path:
-        print("INFO: File selection cancelled or no file chosen.")
+        print("File selection cancelled or no file chosen.")
         unload_image_from_input_node(node_id)
         return
     
@@ -285,11 +284,11 @@ def open_file_dialog_callback(sender, app_data):
         if node_id is not None and node_id in node_registry:
             pass 
         else:
-            print(f"ERROR: node_id {node_id} not in node_registry.")
+            print(f"node_id {node_id} not in node_registry.")
 
         re_process_graph(node_id)
     else:
-        print(f"ERROR: Failed to load image data for {file_path}.")
+        print(f"Failed to load image data for {file_path}.")
         if node_id is not None:
             unload_image_from_input_node(node_id)
         re_process_graph(node_id) 
@@ -302,7 +301,7 @@ def save_output_file_dialog_callback(sender, app_data):
     _current_dialog_node_id = None 
 
     if not app_data['file_path_name']:
-        print("INFO: File save cancelled or no path chosen.")
+        print("File save cancelled or no path chosen.")
         return
 
     file_path = app_data['file_path_name']
@@ -319,22 +318,22 @@ def save_output_file_dialog_callback(sender, app_data):
                 elif output_image.shape[-1] == 4:
                     img_to_save = Image.fromarray((output_image * 255).astype(np.uint8), mode='RGBA') 
                 else:
-                    print(f"ERROR: Unsupported image channel count for saving: {output_image.shape[-1]} channels.")
+                    print(f"Unsupported image channel count for saving: {output_image.shape[-1]} channels.")
                     return
             else:
-                print(f"ERROR: Unsupported image dimension for saving: {output_image.ndim} dimensions.")
+                print(f"Unsupported image dimension for saving: {output_image.ndim} dimensions.")
                 return
 
             if img_to_save:
                 img_to_save.save(file_path)
                 print(f"Image saved successfully to: {file_path}")
             else:
-                print("ERROR: Image could not be prepared for saving.")
+                print("Image could not be prepared for saving.")
 
         except Exception as e:
-            print(f"ERROR: Error saving image: {e}")
+            print(f"Error saving image: {e}")
     else:
-        print("INFO: No image available to save in the output node.")
+        print("No image available to save in the output node.")
 
 
 def node_parameter_changed(sender, app_data, user_data):
@@ -343,18 +342,18 @@ def node_parameter_changed(sender, app_data, user_data):
     re_process_graph(node_id)
 
 def delete_selected_blocks(sender, app_data):
-    # Deletes all currently selected nodes and their associated data.
+    # Deletes all currently selected nodes and their data.
     selected_nodes = dpg.get_selected_nodes("node_editor")
     
     if not selected_nodes:
-        print("INFO: No nodes selected for deletion.")
+        print("No nodes selected for deletion.")
         return
 
     nodes_to_reprocess_from = set() 
 
     for node_id in selected_nodes:
         if not dpg.does_item_exist(node_id):
-            print(f"WARNING: Attempted to delete node {node_id} but it no longer exists in DPG.")
+            print(f"Attempted to delete node {node_id} but it no longer exists in DPG.")
             continue 
         
         node_output_pin = node_registry.get(node_id, {}).get('output_pin_tag')
@@ -387,15 +386,15 @@ def delete_selected_blocks(sender, app_data):
             if dpg.does_item_exist(node_id_to_reprocess):
                 re_process_graph(node_id_to_reprocess)
             else:
-                print(f"INFO: Downstream node {node_id_to_reprocess} no longer exists, skipping re-processing.")
+                print(f"Downstream node {node_id_to_reprocess} no longer exists, skipping re-processing.")
     else:
         re_process_graph()
 
 def unload_image_from_input_node(node_id):
-    # Unloads the image data from the specified input node.
+    # Unloading the image data
     if node_id in node_outputs:
         node_outputs[node_id] = None  
-        print(f"INFO: Image data for node {node_id} cleared.")
+        print(f"Image data for node {node_id} cleared.")
     
     re_process_graph(node_id)
 
@@ -404,7 +403,7 @@ def delete_selected_links(sender, app_data):
     selected_links = dpg.get_selected_links("node_editor")
 
     if not selected_links:
-        print("INFO: No links selected for deletion.")
+        print("No links selected for deletion.")
         return
 
     nodes_to_reprocess_from = set()
@@ -420,7 +419,7 @@ def delete_selected_links(sender, app_data):
             del links[link_id]
             dpg.delete_item(link_id)
         else:
-            print(f"WARNING: Attempted to delete link {link_id} not found in internal registry. Deleting from DPG if exists.")
+            print(f"Attempted to delete link {link_id} not found in internal registry. Deleting from DPG if exists.")
             if dpg.does_item_exist(link_id):
                 dpg.delete_item(link_id)
 
@@ -432,7 +431,7 @@ def delete_selected_links(sender, app_data):
         re_process_graph()
 
 def create_input_node(node_editor_id):
-    # Creates an image input node with load/unload buttons.
+    # Creates an image input node with load and unload buttons
     node_id = dpg.generate_uuid() 
     node_registry[node_id] = {'type': 'input_node'}
 
@@ -454,7 +453,7 @@ def create_input_node(node_editor_id):
     return node_id
 
 def create_gaussian_blur_node(node_editor_id):
-    # Creates a Gaussian blur filter node.
+    # Creates a Gaussian blur node.
     node_id = dpg.generate_uuid()
     node_registry[node_id] = {'type': 'gaussian_blur_node'}
 
@@ -552,7 +551,7 @@ def create_output_node(node_editor_id):
     return node_id
 
 def run_gui():
-    # Sets up and runs the DearPyGui application for the image processing editor.
+    # Sets up and runs the DearPyGui application
     dpg.create_context()
 
     with dpg.file_dialog(
